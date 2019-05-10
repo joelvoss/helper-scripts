@@ -1,0 +1,9 @@
+{
+  "name": "mock-json", 
+  "version": "1.0.0", 
+  "deep": {
+    "nested": {
+      "key": "no value"
+    }
+  }
+}
