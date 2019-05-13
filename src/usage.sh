@@ -1,7 +1,4 @@
 #!/bin/bash
-#
-# Helper functions that automatically parse a pre-defined usage string.
-#
 
 cd $(dirname $0)
 set -e
@@ -9,6 +6,7 @@ set -e
 BOLD="\e[1m"
 CYAN="\e[36m"
 MAGENTA="\e[35m"
+RED="\e[31m"
 RESET="\e[0m\e[39m"
 
 # Prints usage and helptext informations.
@@ -173,7 +171,7 @@ parse_usage() {
     printf -v "tmp_opt_long" '%s' "${!tmp_varname}"
     [[ "${tmp_opt_long:-}" ]] && tmp_opt_long=" (--${tmp_opt_long//_/-})"
 
-    help "Option -${tmp_opt_short}${tmp_opt_long:-} requires an argument."
+    help "${BOLD}Error:${RESET} Option -${tmp_opt_short}${tmp_opt_long:-} requires an argument."
   done
 
   # Cleanup tmp environment variables.
@@ -201,10 +199,10 @@ parse_usage() {
 #    resolve to ${HOME}. You can use bash variables to work around this (so use
 #    ${HOME} instead)
 read -r -d '' usage <<-EOF || true
-  ${CYAN}-s --short${RESET}  ${MAGENTA}[arg]${RESET}  Option w/ args.
+  ${CYAN}-s --short${RESET}          ${MAGENTA}[arg]${RESET}  Option w/ args.
   ${CYAN}-a --another-short${RESET}  ${MAGENTA}[arg]${RESET}  Another option w/ args. Required.
-  ${CYAN}-d --with-default${RESET}  ${MAGENTA}[arg]${RESET}  Option /w args and default value. Default="/tmp/bar"
-  ${CYAN}-h --help${RESET}        This page.
+  ${CYAN}-d --with-default${RESET}   ${MAGENTA}[arg]${RESET}  Option /w args and default value. Default="/tmp/bar"
+  ${CYAN}-h --help${RESET}                  This page.
 EOF
 
 # This defines a default helptext that will be added as-is to the help.
@@ -217,8 +215,3 @@ EOF
 
 # Parse usage string
 parse_usage "${usage}"
-
-# Custom validation
-if [[ "${arg_h:?}" = "0" ]]; then
-   help "Flag -1 (--one) is required."
-fi
