@@ -33,15 +33,11 @@ read -r -d '' helptext <<-EOF || true
   - ${CYAN}pom.xml${RESET}
 EOF
 
-# Prints usage and helptext informations.
-# Optionally you can prepend own text, e.g. errors.
+#############################################
+# Print preformatted help text (e.g. usage).
+#############################################
 help () {
-  _text=${1:-}
   printf "\n"
-  if [ ! -z ${_text} ]; then
-    printf " ${1}\n"
-    printf "\n"
-  fi
   printf "${BOLD}Usage:${RESET} $0 ${CYAN}[--options] ${MAGENTA}[arg]${RESET}\n"
   printf "\n"
   printf "${BOLD}Options:${RESET}\n"
@@ -56,6 +52,9 @@ help () {
   exit 1
 }
 
+#################################
+# Print preformatted error text.
+#################################
 error() {
   printf "\n"
   printf "${BOLD}Error:${RESET}\n"
@@ -65,6 +64,9 @@ error() {
   exit 1
 }
 
+#################################
+# Find nearest file up the tree.
+#################################
 findUp() {
   steps=0
   maxSteps=${2:-2}
@@ -81,12 +83,14 @@ findUp() {
   done
 }
 
+##############################
+# Read data from a JSON file.
+##############################
 readJson() {
   # Make sure python is installed
   pyv="$(python -V 2>&1)"
   if [[ -z $pyv ]]; then
-    echo "No Python!"
-    exit 0
+    error "Python must be installed in order to use this script."
   fi
 
   # Create python command that will be executed to modify JSON
@@ -110,12 +114,14 @@ EOF
   python -c "$pyCmd" "$1" "$2"
 }
 
+######################
+# Modify a JSON file. 
+######################
 modifyJson() {
   # Make sure python is installed
   pyv="$(python -V 2>&1)"
   if [[ -z $pyv ]]; then
-    echo "No Python!"
-    exit 0
+    error "Python must be installed in order to use this script."
   fi
 
   # Create python command that will be executed to modify JSON
@@ -143,8 +149,10 @@ EOF
   python -c "$pyCmd" "$1" "$2" "$3"
 }
 
+############################################################################
 # Parse usage string
 # Translate usage string ➞ getopts arguments, and set $arg_<flag> defaults.
+############################################################################
 while read -r tmp_line; do
   # Remove ANSI escape sequences.
   tmp_line=$(echo ${tmp_line} | sed 's/\\e\[[0-9;]*[a-zA-Z]//g')
@@ -213,7 +221,9 @@ while read -r tmp_line; do
   printf -v "arg_${tmp_opt:0:1}" '%s' "${tmp_init}"
 done <<< "${usage:-}"
 
-# Run getopts only if options were specified in usage
+#######################################################
+# Run getopts only if options were specified in usage.
+#######################################################
 if [[ "${tmp_opts:-}" ]]; then
   # Allow long options like --this
   tmp_opts="${tmp_opts}-:"
@@ -272,7 +282,9 @@ if [[ "${tmp_opts:-}" ]]; then
   fi
 fi
 
+#####################################################
 # Automatic validation of required option arguments.
+#####################################################
 for tmp_varname in ${!tmp_has_arg_*}; do
   # validate only options which required an argument
   [[ "${!tmp_varname}" = "2" ]] || continue
@@ -299,9 +311,11 @@ if [[ "${arg_h:?}" = "1" ]]; then
   help
 fi
 
+########################
 # Start of script body.
-# =====================
-printf "${GREEN}$0${RESET} ${DIM}v1.0.0${RESET}"
+########################
+script_name=$(basename $0)
+printf "${GREEN}${script_name}${RESET} ${DIM}v1.0.0${RESET}"
 
 if [[ "${arg_d:?}" = "0" ]]; then
   printf "  Performing a ${CYAN}dryrun${RESET}. Changes will not be pushed!\n"
