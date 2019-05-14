@@ -9,36 +9,40 @@ DIM="\e[2m"
 CYAN="\e[36m"
 MAGENTA="\e[35m"
 RED="\e[31m"
+GREEN="\e[32m"
 
 # Usage
 read -r -d '' usage <<-EOF || true
-  ${CYAN}-t --type${RESET}  ${MAGENTA}[arg]${RESET}  Release-Type. One of "patch", "minor" or "major". Default=patch
-  ${CYAN}-f --file${RESET}  ${MAGENTA}[arg]${RESET}  File to get/set version number from/to. Default=package.json
-  ${CYAN}-h --help${RESET}         This page.
+  ${CYAN}-t --type${RESET}    ${MAGENTA}[arg]${RESET}  Release-Type. One of "patch", "minor" or "major". Default=patch
+  ${CYAN}-f --file${RESET}    ${MAGENTA}[arg]${RESET}  File to get/set version number from/to. Default=package.json
+  ${CYAN}-d --dryrun${RESET}         Perform a dryrun. Doesn't push to origin.
+  ${CYAN}-h --help${RESET}           This page.
 EOF
 
 # Helptext
 read -r -d '' helptext <<-EOF || true
- This script must be executed from the "develop" branch.
  We support the following release types and version files.
  
  Release types:
-  1) ${CYAN}patch${RESET} ${DIM}(0.0.1 --> 0.0.2)${RESET}
-  2) ${CYAN}minor${RESET} ${DIM}(0.0.1 --> 0.1.0)${RESET}
-  3) ${CYAN}major${RESET} ${DIM}(0.0.1 --> 1.0.0)${RESET}
+  - ${CYAN}patch${RESET} ${DIM}(0.0.1 --> 0.0.2)${RESET}
+  - ${CYAN}minor${RESET} ${DIM}(0.0.1 --> 0.1.0)${RESET}
+  - ${CYAN}major${RESET} ${DIM}(0.0.1 --> 1.0.0)${RESET}
 
  Version files:
-  1) ${CYAN}package.json${RESET}
-  2) ${CYAN}pom.xml${RESET}
+  - ${CYAN}package.json${RESET}
+  - ${CYAN}pom.xml${RESET}
 EOF
 
 # Prints usage and helptext informations.
 # Optionally you can prepend own text, e.g. errors.
 help () {
+  _text=${1:-}
   printf "\n"
-  printf " ${*}\n"
-  printf "\n"
-  printf "${BOLD}Usage:${RESET} $0 ${CYAN}[--option] ${MAGENTA}[arg]${RESET}\n"
+  if [ ! -z ${_text} ]; then
+    printf " ${1}\n"
+    printf "\n"
+  fi
+  printf "${BOLD}Usage:${RESET} $0 ${CYAN}[--options] ${MAGENTA}[arg]${RESET}\n"
   printf "\n"
   printf "${BOLD}Options:${RESET}\n"
   printf "  ${usage:-No usage available}\n"
@@ -56,7 +60,7 @@ error() {
   printf "\n"
   printf "${BOLD}Error:${RESET}\n"
   printf " ${*}"  
-  help ""
+  help
   
   exit 1
 }
@@ -292,7 +296,15 @@ unset -v tmp_varname
 
 if [[ "${arg_h:?}" = "1" ]]; then
   # Help exists with code 1
-  help "Help using ${0}"
+  help
+fi
+
+# Start of script body.
+# =====================
+printf "${GREEN}$0${RESET} ${DIM}v1.0.0${RESET}"
+
+if [[ "${arg_d:?}" = "0" ]]; then
+  printf "  Performing a ${CYAN}dryrun${RESET}. Changes will not be pushed!\n"
 fi
 
 # Get current version from package.json
@@ -315,37 +327,49 @@ case ${arg_t} in
     ;;
 esac
 
-# Save current branch name
+# Save current branch name.
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# Script header
-printf "${GREEN}$0${RESET} ${DIM}v1.0.0${RESET}"
 
 printf "Cutting ${CYAN}${arg_t}${RESET} release. ${DIM}(${VERSION} --> ${NEW_VERSION})${RESET}\n"
 
-# Create "release/" branch
+# Create "release/" branch.
 printf "  Creating \"${CYAN}release/${NEW_VERSION}${RESET}\"..."
 git checkout -b release/${NEW_VERSION} --quiet
-git push -u origin release/${NEW_VERSION} --quiet
+# Push of dryrun
+if [[ "${arg_d:?}" = "0" ]]; then
+  git push -u origin release/${NEW_VERSION} --quiet
+fi
 printf "done.\n"
 
 # Update version and push
 printf "  Update version to ${NEW_VERSION}, commit and push..."
 modifyJson ${VERSION_FILE}/${arg_f} version ${NEW_VERSION}
-git add ${VERSION_FILE}/${arg_f} -quite
-git commit -m "Cut release ${NEW_VERSION}" -quite
-git push --quite
+git add ${VERSION_FILE}/${arg_f} --quite
+git commit -m "Cut release ${NEW_VERSION}" --quite
+if [[ "${arg_d:?}" = "0" ]]; then
+  git push --quite
+fi
 printf "done.\n"
 
 # Merge release into master
 printf "  Mergin release into master, tag and push..."
 git checkout master --quite
-git merge --ff-only release/${NEW_VERSION} --quite
+git merge --ff-only release/${NEW_VERSION} --quiet
 git tag -a -m "Cut release ${NEW_VERSION}" ${NEW_VERSION}
-git push --follow-tags
+if [[ "${arg_d:?}" = "0" ]]; then
+  git push --follow-tags --quiet
+fi
+printf "done.\n"
+
+# Removing stray release branch
+printf "  Cleaning up..."
+if [[ "${arg_d:?}" = "0" ]]; then
+  git push --delete origin release/${NEW_VERSION} --quite
+fi
+git branch -d release/${NEW_VERSION} --quite
 printf "done.\n"
 
 # Jump back to initial branch
-git checkout ${CUR_BRANCH}
+git checkout ${CUR_BRANCH} --quiet
 
 printf "${BOLD}${GREEN}Success.${RESET} Finished cutting release ${NEW_VERSION}\n"
