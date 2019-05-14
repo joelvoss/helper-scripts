@@ -1,6 +1,6 @@
 {
   "name": "helper-scripts", 
-  "version": "1.0.0", 
+  "version": "0.0.1", 
   "description": "Compilation of helper scripts for various tasks", 
   "author": "Joel Voß <mail@joelvoss.com>", 
   "scripts": {

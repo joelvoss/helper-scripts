@@ -295,16 +295,10 @@ if [[ "${arg_h:?}" = "1" ]]; then
   help "Help using ${0}"
 fi
 
-# # Validate active git branch
-# if [[ "$(git rev-parse --abbrev-ref HEAD)" != "develop" ]]; then
-#   error "Not on branch \"${CYAN}develop${RESET}\"."
-# fi
-
 # Get current version from package.json
 VERSION_FILE=$(findUp ${arg_f})
 VERSION=$(readJson ${VERSION_FILE}/${arg_f} version)
 IFS='.' read -r -a SEMVER <<< "${VERSION}"
-
 # Set new semver number
 case ${arg_t} in
   patch)
@@ -321,25 +315,37 @@ case ${arg_t} in
     ;;
 esac
 
+# Save current branch name
+CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Script header
+printf "${GREEN}$0${RESET} ${DIM}v1.0.0${RESET}"
 
 printf "Cutting ${CYAN}${arg_t}${RESET} release. ${DIM}(${VERSION} --> ${NEW_VERSION})${RESET}\n"
 
-# Commit new release version
-printf "Commit new release version..."
-exit 0
-modifyJson ${VERSION_FILE}/${arg_f} version ${NEW_VERSION}
-git add ${VERSION_FILE}/${arg_f}
-git commit -m "Cut release ${NEW_VERSION}"
+# Create "release/" branch
+printf "  Creating \"${CYAN}release/${NEW_VERSION}${RESET}\"..."
+git checkout -b release/${NEW_VERSION} --quiet
+git push -u origin release/${NEW_VERSION} --quiet
 printf "done.\n"
 
-# Merge to master + tag
-printf "[RELEASE] Merging to master and tagging...\n"
-git checkout master
-git merge develop
+# Update version and push
+printf "  Update version to ${NEW_VERSION}, commit and push..."
+modifyJson ${VERSION_FILE}/${arg_f} version ${NEW_VERSION}
+git add ${VERSION_FILE}/${arg_f} -quite
+git commit -m "Cut release ${NEW_VERSION}" -quite
+git push --quite
+printf "done.\n"
+
+# Merge release into master
+printf "  Mergin release into master, tag and push..."
+git checkout master --quite
+git merge --ff-only release/${NEW_VERSION} --quite
 git tag -a -m "Cut release ${NEW_VERSION}" ${NEW_VERSION}
+git push --follow-tags
+printf "done.\n"
 
-# Checkout develop
-printf "[RELEASE] Setting and committing next dev version...\n"
-git checkout develop
+# Jump back to initial branch
+git checkout ${CUR_BRANCH}
 
-printf "[RELEASE] Release performed successfully. Please review the changes and push them manually.\n"
+printf "${BOLD}${GREEN}Success.${RESET} Finished cutting release ${NEW_VERSION}\n"
