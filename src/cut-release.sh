@@ -1,7 +1,10 @@
 #!/bin/bash
+#
+# This script cuts a new release from the current active branch.
 
 cd $(dirname $0)
 set -e
+script_name=$(basename $0)
 
 RESET="\e[0m\e[39m"
 BOLD="\e[1m"
@@ -11,34 +14,33 @@ MAGENTA="\e[35m"
 RED="\e[31m"
 GREEN="\e[32m"
 
-# Usage
+# Script-Header
+printf "${GREEN}${script_name}${RESET} ${DIM}v1.0.0${RESET}\n\n"
+
+################################
+# Define usage flags/arguments.
+################################
 read -r -d '' usage <<-EOF || true
   ${CYAN}-t --type${RESET}    ${MAGENTA}[arg]${RESET}  Release-Type. One of "patch", "minor" or "major". Default=patch
-  ${CYAN}-f --file${RESET}    ${MAGENTA}[arg]${RESET}  File to get/set version number from/to. Default=package.json
   ${CYAN}-d --dryrun${RESET}         Perform a dryrun. Doesn't push to origin.
   ${CYAN}-h --help${RESET}           This page.
 EOF
 
-# Helptext
+############################################################
+# Define the helptext which is displayed on the usage page.
+############################################################
 read -r -d '' helptext <<-EOF || true
- We support the following release types and version files.
- 
- Release types:
-  - ${CYAN}patch${RESET} ${DIM}(0.0.1 --> 0.0.2)${RESET}
-  - ${CYAN}minor${RESET} ${DIM}(0.0.1 --> 0.1.0)${RESET}
-  - ${CYAN}major${RESET} ${DIM}(0.0.1 --> 1.0.0)${RESET}
-
- Version files:
-  - ${CYAN}package.json${RESET}
-  - ${CYAN}pom.xml${RESET}
+ We support the following release types:
+  - ${CYAN}patch${RESET} ${DIM}(0.0.1 -> 0.0.2)${RESET}
+  - ${CYAN}minor${RESET} ${DIM}(0.0.1 -> 0.1.0)${RESET}
+  - ${CYAN}major${RESET} ${DIM}(0.0.1 -> 1.0.0)${RESET}
 EOF
 
-#############################################
-# Print preformatted help text (e.g. usage).
-#############################################
+##########################################
+# Prints usage and helptext informations.
+##########################################
 help () {
-  printf "\n"
-  printf "${BOLD}Usage:${RESET} $0 ${CYAN}[--options] ${MAGENTA}[arg]${RESET}\n"
+  printf "${BOLD}Usage:${RESET} ${script_name} ${CYAN}[--options] ${MAGENTA}[arg]${RESET}\n"
   printf "\n"
   printf "${BOLD}Options:${RESET}\n"
   printf "  ${usage:-No usage available}\n"
@@ -52,21 +54,23 @@ help () {
   exit 1
 }
 
-#################################
-# Print preformatted error text.
-#################################
+###########################################
+# Prints error and help text informations.
+###########################################
 error() {
-  printf "\n"
   printf "${BOLD}Error:${RESET}\n"
-  printf " ${*}"  
+  printf " ${*}"
+  printf "\n\n"
+
+  # Exits with status code 1
   help
-  
-  exit 1
 }
 
-#################################
-# Find nearest file up the tree.
-#################################
+############################################################
+# Find file up the file-tree.
+# @param {string} $1 File to find
+# @param {number} $2 Maximal levels to search up. Default=2
+############################################################
 findUp() {
   steps=0
   maxSteps=${2:-2}
@@ -84,7 +88,8 @@ findUp() {
 }
 
 ##############################
-# Read data from a JSON file.
+# Read values from JSON file.
+# -> Requires python
 ##############################
 readJson() {
   # Make sure python is installed
@@ -114,9 +119,10 @@ EOF
   python -c "$pyCmd" "$1" "$2"
 }
 
-######################
-# Modify a JSON file. 
-######################
+##############################
+# Modify a JSON file.
+# -> Requires python
+##############################
 modifyJson() {
   # Make sure python is installed
   pyv="$(python -V 2>&1)"
@@ -141,8 +147,7 @@ with io.open(sys.argv[1], encoding='utf-8', mode='r+') as jsonFile:
     key = sys.argv[2].split('.')
     nested_set(data, key, sys.argv[3])
     jsonFile.seek(0)
-    jsonFile.write(unicode(json.dumps(data, ensure_ascii=False, indent=2)))
-    jsonFile.truncate()
+    jsonFile.write(unicode(json.dumps(data, ensure_ascii=False, indent=2, separators=(',', ': '))))
 EOF
 
   # Execute python script
@@ -152,7 +157,7 @@ EOF
 ############################################################################
 # Parse usage string
 # Translate usage string ➞ getopts arguments, and set $arg_<flag> defaults.
-############################################################################
+###########################################3#################################
 while read -r tmp_line; do
   # Remove ANSI escape sequences.
   tmp_line=$(echo ${tmp_line} | sed 's/\\e\[[0-9;]*[a-zA-Z]//g')
@@ -236,7 +241,7 @@ if [[ "${tmp_opts:-}" ]]; then
   set +o nounset
   # Overwrite $arg_<flag> defaults with the actual CLI options
   while getopts ${tmp_opts} tmp_opt; do
-    [[ "${tmp_opt}" = "?" ]] && help "Invalid use of script: ${*} "
+    [[ "${tmp_opt}" = "?" ]] && error "Invalid use of script: ${*} "
 
     if [[ "${tmp_opt}" = "-" ]]; then
       # OPTARG is long-option-name or long-option=value
@@ -297,33 +302,33 @@ for tmp_varname in ${!tmp_has_arg_*}; do
   printf -v "tmp_opt_long" '%s' "${!tmp_varname}"
   [[ "${tmp_opt_long:-}" ]] && tmp_opt_long=" (--${tmp_opt_long//_/-})"
 
-  help "${BOLD}Error:${RESET} Option -${tmp_opt_short}${tmp_opt_long:-} requires an argument."
+  error "Option -${tmp_opt_short}${tmp_opt_long:-} requires an argument."
 done
 
+#####################################
 # Cleanup tmp environment variables.
+#####################################
 for tmp_varname in ${!tmp_*}; do
   unset -v "${tmp_varname}"
 done
 unset -v tmp_varname
 
+###########################
+# Check if -h flag is set.
+###########################
 if [[ "${arg_h:?}" = "1" ]]; then
   # Help exists with code 1
   help
 fi
 
-########################
-# Start of script body.
-########################
-script_name=$(basename $0)
-printf "${GREEN}${script_name}${RESET} ${DIM}v1.0.0${RESET}"
-
-if [[ "${arg_d:?}" = "0" ]]; then
-  printf "  Performing a ${CYAN}dryrun${RESET}. Changes will not be pushed!\n"
+# Check dryrun flag.
+if [[ "${arg_d:?}" = "1" ]]; then
+  printf "Performing a ${CYAN}dryrun${RESET}. No deployment will be executed!\n"
 fi
 
 # Get current version from package.json
-VERSION_FILE=$(findUp ${arg_f})
-VERSION=$(readJson ${VERSION_FILE}/${arg_f} version)
+VERSION_FILE_PATH=$(findUp package.json)
+VERSION=$(readJson ${VERSION_FILE_PATH}/package.json version)
 IFS='.' read -r -a SEMVER <<< "${VERSION}"
 # Set new semver number
 case ${arg_t} in
@@ -340,50 +345,49 @@ case ${arg_t} in
     error "-t (--type) argument must be one of \"patch\", \"minor\" or \"major\""
     ;;
 esac
+printf "Cutting ${CYAN}${arg_t}${RESET} release. ${DIM}(${VERSION} --> ${NEW_VERSION})${RESET}\n"
 
 # Save current branch name.
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-printf "Cutting ${CYAN}${arg_t}${RESET} release. ${DIM}(${VERSION} --> ${NEW_VERSION})${RESET}\n"
-
 # Create "release/" branch.
-printf "  Creating \"${CYAN}release/${NEW_VERSION}${RESET}\"..."
-git checkout -b release/${NEW_VERSION} --quiet
+printf "Creating \"${CYAN}release/${NEW_VERSION}${RESET}\"..."
+git checkout -b release/${NEW_VERSION} >/dev/null 2>&1
 # Push of dryrun
 if [[ "${arg_d:?}" = "0" ]]; then
-  git push -u origin release/${NEW_VERSION} --quiet
+  git push -u origin release/${NEW_VERSION} >/dev/null 2>&1
 fi
 printf "done.\n"
 
 # Update version and push
-printf "  Update version to ${NEW_VERSION}, commit and push..."
-modifyJson ${VERSION_FILE}/${arg_f} version ${NEW_VERSION}
-git add ${VERSION_FILE}/${arg_f} --quite
-git commit -m "Cut release ${NEW_VERSION}" --quite
+printf "Update version to ${NEW_VERSION}, commit and push..."
+modifyJson ${VERSION_FILE_PATH}/package.json version ${NEW_VERSION}
+git add ${VERSION_FILE_PATH}/package.json >/dev/null 2>&1
+git commit -m "Cut release ${NEW_VERSION}" >/dev/null 2>&1
 if [[ "${arg_d:?}" = "0" ]]; then
-  git push --quite
+  git push >/dev/null 2>&1
 fi
 printf "done.\n"
 
 # Merge release into master
-printf "  Mergin release into master, tag and push..."
-git checkout master --quite
-git merge --ff-only release/${NEW_VERSION} --quiet
-git tag -a -m "Cut release ${NEW_VERSION}" ${NEW_VERSION}
+printf "Merging release into master, tag and push..."
+git checkout master >/dev/null 2>&1
+git merge --ff-only release/${NEW_VERSION} >/dev/null 2>&1
+git tag -a -m "Cut release ${NEW_VERSION}" ${NEW_VERSION} >/dev/null 2>&1
 if [[ "${arg_d:?}" = "0" ]]; then
-  git push --follow-tags --quiet
+  git push --follow-tags >/dev/null 2>&1
 fi
 printf "done.\n"
 
 # Removing stray release branch
-printf "  Cleaning up..."
+printf "Cleaning up..."
 if [[ "${arg_d:?}" = "0" ]]; then
-  git push --delete origin release/${NEW_VERSION} --quite
+  git push --delete origin release/${NEW_VERSION} >/dev/null 2>&1
 fi
-git branch -d release/${NEW_VERSION} --quite
+git branch -d release/${NEW_VERSION} >/dev/null 2>&1
 printf "done.\n"
 
 # Jump back to initial branch
-git checkout ${CUR_BRANCH} --quiet
+git checkout ${CUR_BRANCH} >/dev/null 2>&1
 
 printf "${BOLD}${GREEN}Success.${RESET} Finished cutting release ${NEW_VERSION}\n"
