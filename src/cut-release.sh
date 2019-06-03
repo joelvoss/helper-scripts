@@ -372,7 +372,7 @@ printf "done.\n"
 # Merge release into master
 printf "Merging release into master, tag and push..."
 git checkout master >/dev/null 2>&1
-git merge --ff-only release/${NEW_VERSION} >/dev/null 2>&1
+git merge release/${NEW_VERSION} --no-edit >/dev/null 2>&1
 git tag -a -m "Cut release ${NEW_VERSION}" ${NEW_VERSION} >/dev/null 2>&1
 if [[ "${arg_d:?}" = "0" ]]; then
   git push --follow-tags >/dev/null 2>&1
@@ -382,7 +382,7 @@ printf "done.\n"
 # Merge release into source branch
 printf "Merging release into ${CUR_BRANCH}, tag and push..."
 git checkout ${CUR_BRANCH} >/dev/null 2>&1
-git merge --ff-only release/${NEW_VERSION} >/dev/null 2>&1
+git merge release/${NEW_VERSION} --no-edit >/dev/null 2>&1
 if [[ "${arg_d:?}" = "0" ]]; then
   git push --follow-tags >/dev/null 2>&1
 fi
