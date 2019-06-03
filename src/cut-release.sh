@@ -379,6 +379,15 @@ if [[ "${arg_d:?}" = "0" ]]; then
 fi
 printf "done.\n"
 
+# Merge release into source branch
+printf "Merging release into ${CUR_BRANCH}, tag and push..."
+git checkout ${CUR_BRANCH} >/dev/null 2>&1
+git merge --ff-only release/${NEW_VERSION} >/dev/null 2>&1
+if [[ "${arg_d:?}" = "0" ]]; then
+  git push --follow-tags >/dev/null 2>&1
+fi
+printf "done.\n"
+
 # Removing stray release branch
 printf "Cleaning up..."
 if [[ "${arg_d:?}" = "0" ]]; then
@@ -386,8 +395,5 @@ if [[ "${arg_d:?}" = "0" ]]; then
 fi
 git branch -d release/${NEW_VERSION} >/dev/null 2>&1
 printf "done.\n"
-
-# Jump back to initial branch
-git checkout ${CUR_BRANCH} >/dev/null 2>&1
 
 printf "${BOLD}${GREEN}Success.${RESET} Finished cutting release ${NEW_VERSION}\n"
